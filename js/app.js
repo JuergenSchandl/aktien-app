@@ -11,7 +11,8 @@
   var S = {
     sitzung: null, me: null, geladen: false, laedt: false, fehler: '', view: 'depot',
     pos: [], alarme: [], kz: {}, einst: {}, meldungen: [], trades: [], genutzt: 0,
-    rechner: { boerse: 'WIEN', betrag: 5000, wochen: 4, ziel: 5 }, offen: {}, order: null, push: 'unbekannt', dreht: false
+    rechner: { boerse: 'WIEN', betrag: 5000, wochen: 4, ziel: 5 }, offen: {}, order: null, push: 'unbekannt', dreht: false,
+    markt: null, mk: { zeit: 'm126', gruppe: 'alle', offen: null }
   };
   var app = document.getElementById('app'), blatt = null, tt = null;
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -21,6 +22,7 @@
     rechner: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11.5h.01M12 11.5h.01M16 11.5h.01M8 15.5h.01M12 15.5h.01M16 15.5v2.5M8 18.5h.01M12 18.5h.01"/>',
     alarme: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
     mehr: '<path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/>',
+    markt: '<path d="M12 4v16M12 7.5h7M12 12h4M12 16.5H6M12 12H8"/>',
     neu: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
   };
 
@@ -321,11 +323,63 @@
     };
   }
 
+  /* ---------- Markt: wie sich die Bereiche entwickelt haben ---------- */
+  var ZEITRAUM = { m21: '1 Monat', m126: '6 Monate', m252: '12 Monate' };
+  function mitte(a) { if (!a.length) return null; a = a.slice().sort(function (x, y) { return x - y; }); var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+  var hat = function (v) { return v !== null && v !== undefined; };
+  async function marktLaden() {
+    if (S.marktLaedt) return;
+    S.marktLaedt = true;
+    try {
+      var r = await Promise.all([q(sb.from('markt').select('symbol,name,region,sektor,waehrung').neq('region', 'Index').limit(1000)), q(sb.from('markt_stand').select('*').limit(1000))]);
+      var st = {}; r[1].forEach(function (x) { st[x.symbol] = x; });
+      S.markt = r[0].map(function (m) { return Object.assign({}, m, st[m.symbol] || {}); }).filter(function (m) { return m.tag; });
+    } catch (e) { S.markt = []; toast('Die Marktdaten konnten nicht geladen werden: ' + meldung(e)); }
+    S.marktLaedt = false;
+    if (S.view === 'markt') render();
+  }
+  function vMarkt() {
+    var o = S.mk, kopf = '<h1>Markt</h1><p>Wie sich die Bereiche entwickelt haben.</p>';
+    if (!S.markt) { marktLaden(); return { band: kopf, main: '<p class="lade" style="padding-top:60px">Lade …</p>' }; }
+    var liste = S.markt.filter(function (m) { return o.gruppe === 'alle' || (o.gruppe === 'us') === (m.region === 'USA' || m.region === 'Welt'); });
+    var sek = {}; liste.forEach(function (m) { (sek[m.sektor] = sek[m.sektor] || []).push(m); });
+    var zeilen = Object.keys(sek).map(function (name) {
+      var a = sek[name], t = a.filter(function (m) { return hat(m.trend200); });
+      return { name: name, n: a.length, mitte: mitte(a.map(function (m) { return m[o.zeit]; }).filter(hat)), ueber: t.filter(function (m) { return m.trend200 > 0; }).length, mitTrend: t.length,
+        vorn: a.filter(function (m) { return m.punkte >= 18; }).length, hinten: a.filter(function (m) { return hat(m.punkte) && m.punkte <= 6; }).length, aktien: a };
+    }).filter(function (z) { return z.mitte !== null; }).sort(function (x, y) { return y.mitte - x.mitte; });
+    var max = Math.max.apply(null, zeilen.map(function (z) { return Math.abs(z.mitte); }).concat(0.01));
+    var stand = liste.reduce(function (d, m) { return m.tag > d ? m.tag : d; }, '');
+    var seg = function (attr, werte, aktiv, label) { return '<div class="seg" role="group" aria-label="' + label + '">' + Object.keys(werte).map(function (k) { return '<button type="button" data-' + attr + '="' + k + '" aria-pressed="' + (aktiv === k) + '">' + werte[k] + '</button>'; }).join('') + '</div>'; };
+    var imDepot = {}; S.pos.forEach(function (p) { if (num(p.stueck) > 0 || p.beobachten) imDepot[p.symbol] = true; });
+    return {
+      band: kopf,
+      main: '<section class="card"><p class="feld">Zeitraum</p>' + seg('zeit', ZEITRAUM, o.zeit, 'Zeitraum') +
+        '<p class="feld mt">Börsen</p>' + seg('gruppe', { alle: 'Alle', eu: 'Europa', us: 'USA' }, o.gruppe, 'Börsen') + '</section>' +
+        '<section class="card"><h3>Bereiche, ' + ZEITRAUM[o.zeit] + '</h3>' + (zeilen.length ? zeilen.map(function (z) {
+          var offen = o.offen === z.name, w = Math.abs(z.mitte) / max * 50;
+          return '<button type="button" class="bereich" data-sektor="' + esc(z.name) + '" aria-expanded="' + offen + '">' +
+            '<span class="kopf"><b>' + esc(z.name) + '</b><span class="wert ' + cls(z.mitte) + '">' + pct(z.mitte * 100, true, 1) + '</span></span>' +
+            '<span class="zweig"><i class="' + (z.mitte < 0 ? 'minus' : 'plus') + '" style="width:' + w.toFixed(1) + '%"></i></span>' +
+            '<span class="mut">' + z.ueber + ' von ' + z.mitTrend + ' im Aufwärtstrend, ' + z.vorn + ' vorne, ' + z.hinten + ' hinten</span></button>' +
+            (offen ? '<div class="aktienliste">' + z.aktien.slice().sort(function (x, y) { return (hat(y[o.zeit]) ? y[o.zeit] : -9) - (hat(x[o.zeit]) ? x[o.zeit] : -9); }).map(function (m) {
+              var v = m[o.zeit];
+              return '<div class="aktie"><div class="z1"><b>' + esc(m.name || m.symbol) + '</b><span class="nw ' + (hat(v) ? cls(v) : 'mut') + '"><b>' + (hat(v) ? pct(v * 100, true, 1) : 'zu neu') + '</b></span></div>' +
+                '<div class="z2"><span class="mut">' + esc(m.region) + (hat(m.trend200) ? (m.trend200 > 0 ? ', im Aufwärtstrend' : ', im Abwärtstrend') : '') + (m.punkte >= 18 ? ', vorne' : hat(m.punkte) && m.punkte <= 6 ? ', hinten' : '') + '</span>' +
+                (inhaber() && !imDepot[m.symbol] ? '<button type="button" class="text" data-act="markt-beob" data-symbol="' + esc(m.symbol) + '" aria-label="' + esc(m.name || m.symbol) + ' beobachten">Beobachten</button>' : imDepot[m.symbol] ? '<span class="mut">im Depot oder beobachtet</span>' : '') + '</div></div>';
+            }).join('') + '</div>' : '');
+        }).join('') : '<p class="mut" style="margin:0">Für diese Auswahl gibt es noch keine Daten.</p>') + '</section>' +
+        '<p class="note">' + liste.length + ' Aktien, Schlusskurse vom ' + esc(L.datum(stand)) + '. Die Zahl je Bereich ist der mittlere Wert seiner Aktien: Die Hälfte lag darüber, die Hälfte darunter. ' +
+        'Aufwärtstrend heißt: Der Kurs liegt über seinem Schnitt der letzten 200 Tage. „Vorne“ und „hinten“ heißt: besonders starker oder schwacher Trend und Schwung im Vergleich zu den anderen Aktien. ' +
+        'Unter „USA“ stehen auch Firmen aus Asien und anderen Ländern, die dort gehandelt werden. Alles zeigt, was bisher gelaufen ist, und ist keine Vorhersage.</p>'
+    };
+  }
+
   /* ---------- Rahmen ---------- */
-  var VIEWS = { depot: vDepot, rechner: vRechner, alarme: vAlarme, mehr: vMehr };
+  var VIEWS = { depot: vDepot, markt: vMarkt, rechner: vRechner, alarme: vAlarme, mehr: vMehr };
   var MARKE = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#0b5d63"/><path d="M8 20h24" stroke="#fff" stroke-opacity=".55" stroke-width="2.4" stroke-linecap="round"/><path d="M14 20v6M28 20v-7" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="21" cy="20" r="4.2" fill="#fff"/></svg>';
   function tabs() {
-    var t = [['depot', 'Depot'], ['rechner', 'Rechner'], ['alarme', 'Alarme'], ['mehr', 'Mehr']];
+    var t = [['depot', 'Depot'], ['markt', 'Markt'], ['rechner', 'Rechner'], ['alarme', 'Alarme'], ['mehr', 'Mehr']];
     return '<nav class="tabs" aria-label="Bereiche"><div class="wrap innen">' + t.map(function (x) {
       return '<a href="#' + x[0] + '"' + (S.view === x[0] ? ' aria-current="page"' : '') + '><svg viewBox="0 0 24 24">' + IC[x[0]] + '</svg>' + x[1] + (x[0] === 'alarme' && S.view !== 'alarme' && ungelesen() ? '<span class="neu" aria-label="Neue Meldung"></span>' : '') + '</a>';
     }).join('') + '</div></nav>';
@@ -490,6 +544,13 @@
     },
     order: function (d) { var vor = { art: d.art || 'kauf' }; if (d.wid) vor.wid = d.wid; orderNeu(vor); },
     'blatt-zu': schliesse,
+    'markt-beob': async function (d) {
+      var m = (S.markt || []).find(function (x) { return x.symbol === d.symbol; }); if (!m) return;
+      try {
+        await q(sb.rpc('wertpapier_anlegen', { p_symbol: m.symbol, p_isin: null, p_branche: m.sektor || null, p_beobachten: true }));
+        await laden(true); render(); toast((m.name || m.symbol) + ' steht auf der Beobachtungsliste.');
+      } catch (e) { toast(meldung(e)); }
+    },
     beob: function () { S.beob = { such: '', treffer: null }; beobBlatt(); },
     'beob-neu': async function (d) {
       var t = S.beob && S.beob.treffer && S.beob.treffer[Number(d.i)]; if (!t) return;
@@ -532,7 +593,10 @@
     if (d.act && AKT[d.act]) { AKT[d.act](d); return; }
     if (d.boerse) { S.rechner.boerse = d.boerse; app.querySelectorAll('[data-boerse]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); }); rechnerAus(); return; }
     if (d.betrag) { S.rechner.betrag = Number(d.betrag); $('#r-betrag').value = d.betrag; rechnerAus(); return; }
-    if (d.oart && S.order) { S.order.art = d.oart; orderBlatt(); }
+    if (d.oart && S.order) { S.order.art = d.oart; orderBlatt(); return; }
+    if (d.zeit) { S.mk.zeit = d.zeit; render(); return; }
+    if (d.gruppe) { S.mk.gruppe = d.gruppe; S.mk.offen = null; render(); return; }
+    if (d.sektor) { S.mk.offen = S.mk.offen === d.sektor ? null : d.sektor; render(); }
   });
   document.addEventListener('input', function (e) {
     var t = e.target;

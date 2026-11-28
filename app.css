@@ -141,6 +141,25 @@ h4 { font: 700 16px/1.3 var(--sans); margin: 14px 0 0; }
 h4 + .eintrag { border-top: 0; padding-top: 6px; }
 .haken.klein { font-size: 14px; gap: 6px; min-height: 36px; }
 .eintrag .rechts { display: flex; gap: 10px; align-items: center; flex: none; }
+.bereich { display: block; width: 100%; min-height: 0; padding: 12px 0; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-top: 1px solid var(--rule); border-radius: 0; }
+.card > h3 + .bereich { border-top: 0; }
+.bereich .kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.bereich .kopf b { font-size: 16px; }
+.bereich .kopf b::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 9px; border-right: 2px solid var(--mut); border-bottom: 2px solid var(--mut); transform: rotate(45deg); vertical-align: 3px; }
+.bereich[aria-expanded=true] .kopf b::after { transform: rotate(-135deg); vertical-align: -1px; }
+.bereich .wert { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bereich .mut { display: block; }
+.zweig { display: block; position: relative; height: 8px; margin: 9px 0 7px; background: var(--pan); border-radius: 4px; }
+.zweig::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--mut); }
+.zweig i { position: absolute; top: 0; bottom: 0; min-width: 2px; }
+.zweig i.plus { left: 50%; background: var(--good); border-radius: 0 4px 4px 0; }
+.zweig i.minus { right: 50%; background: var(--red); border-radius: 4px 0 0 4px; }
+.aktienliste { padding: 0 0 6px 12px; border-left: 2px solid var(--rule); margin-bottom: 8px; }
+.aktie { border-top: 1px solid var(--rule); padding: 9px 0 5px; }
+.aktie:first-child { border-top: 0; }
+.aktie .z1, .aktie .z2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.aktie .z2 { align-items: center; min-height: 36px; }
+.aktie .z2 button { flex: none; }
 .status { font-weight: 600; font-size: 14px; color: var(--mut); white-space: nowrap; }
 .status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: 1px; opacity: .6; }
 .status.an { color: var(--good); }
@@ -156,7 +175,7 @@ h4 + .eintrag { border-top: 0; padding-top: 6px; }
 
 /* ---------- Leiste unten, Meldung, Blatt ---------- */
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--rule); padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 5; }
-.tabs .innen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tabs .innen { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .tabs a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; font-size: 13px; color: var(--mut); text-decoration: none; min-height: 58px; position: relative; }
 .tabs a[aria-current=page] { color: var(--teal); font-weight: 700; }
 .tabs svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
