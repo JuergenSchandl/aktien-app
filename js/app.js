@@ -129,11 +129,32 @@
     s.innerHTML = o + '<circle class="' + (minus ? 'punkt-neg' : 'punkt-pos') + '" cx="' + Xp(jetzt) + '" cy="' + Yl + '" r="7"/>';
   }
 
+  /* ---------- Handelszeiten ---------- */
+  var PLATZ = { WIEN: 'WIEN', XETRA: 'XETRA', NYSE: 'NY', NASDAQ: 'NY' };
+  /* "Wien offen bis 17:35" für die Börse, an der eine Aktie gehandelt wird */
+  function platzStand(p) {
+    var name = BOERSEN[p.boerse] || '', b = PLATZ[p.boerse] && L.boersen(new Date()).find(function (x) { return x.id === PLATZ[p.boerse]; });
+    return b ? name + ' ' + b.text : name;
+  }
+  function zeitenKarte(bz) {
+    return '<section class="card"><h3>Handelszeiten in Wiener Zeit</h3>' + bz.map(function (b) {
+          var wann = b.wann ? b.wann.charAt(0).toUpperCase() + b.wann.slice(1) + ' ' : '';
+          return '<div class="eintrag"><div><b>' + esc(b.name) + '</b>' + (b.zusatz ? ' <span class="mut">' + esc(b.zusatz) + '</span>' : '') +
+            '<div class="mut">' + esc(wann + b.zeiten) + '</div></div>' +
+            '<div class="rechts"><span class="status' + (b.offen ? ' an' : '') + '">' + (b.offen ? 'offen' : 'geschlossen') + '</span></div></div>';
+        }).join('') +
+        '<details class="mehr" data-offen="zeiten"' + (S.offen.zeiten ? ' open' : '') + '><summary>Genauer</summary><p class="mut" style="margin:8px 0 0">' +
+          'Wien: Eröffnungsauktion ab 8:55, fortlaufender Handel bis 17:30, Schlussauktion bis 17:35. ' +
+          'Xetra: Haupthandel 9:00 bis 17:30, danach Schlussauktion. Für Privatanleger gibt es dort zusätzlich Früh- und Späthandel von 8:00 bis 22:00, wenn die Bank ihn anbietet. ' +
+          'New York: Haupthandel 9:30 bis 16:00 Ortszeit. George leitet Aufträge Montag bis Freitag von 7:30 bis 22:00 an die Börse weiter, spätere Aufträge am nächsten Handelstag.</p>' +
+          '<p class="mut" style="margin:8px 0 0">Feiertage, verkürzte Tage und die Zeitumstellung in den USA sind eingerechnet. Für den 30. Dezember gilt der frühe Schluss des Vorjahres, bis die Börsen ihn bestätigen.</p></details></section>';
+  }
+
   /* ---------- Depot ---------- */
   function karte(p) {
     var id = esc(p.wertpapier_id), ke = num(p.kurs_eur), hatKurs = p.kurs !== null && p.kurs !== undefined, kz = S.kz[p.symbol] || {};
     var tag = hatKurs && num(p.vortag_eur) ? (ke / num(p.vortag_eur) - 1) * 100 : null, be = num(p.breakeven_eur), abst = be && ke ? (be / ke - 1) * 100 : null;
-    var kopf = '<div class="hd"><div><h2>' + esc(p.name) + '</h2><div class="mut">' + [esc(p.isin), BOERSEN[p.boerse] || '', nf(p.stueck, num(p.stueck) % 1 ? 2 : 0) + ' Stück'].filter(Boolean).join(', ') + '</div></div>' +
+    var kopf = '<div class="hd"><div><h2>' + esc(p.name) + '</h2><div class="mut">' + [esc(p.isin), nf(p.stueck, num(p.stueck) % 1 ? 2 : 0) + ' Stück', esc(platzStand(p))].filter(Boolean).join(', ') + '</div></div>' +
       '<div class="px">' + (hatKurs ? '<b>' + L.geld(p.kurs, p.waehrung) + '</b><span class="mut">' + (p.waehrung === 'USD' ? 'in Euro ' + nf(ke) + ', ' : '') + (tag === null ? '' : '<span class="' + cls(tag) + '">' + pct(tag) + '</span> heute, ') + 'Stand ' + esc(L.zeit(p.kurs_zeit)) + '</span>' : '<span class="mut">Noch kein Kurs</span>') + '</div></div>';
     if (!hatKurs) return '<article class="card">' + kopf + '</article>';
     var sigma = num(kz.sigma_tag), s200 = num(kz.schnitt200);
@@ -158,7 +179,9 @@
   function vDepot() {
     var s = summen(), pos = bestand(), alt = veraltet(), tag = s.vortag ? s.heute / s.vortag * 100 : null;
     var beob = S.pos.filter(function (p) { return !(num(p.stueck) > 0) && p.beobachten; });
-    var bz = L.boersen(new Date());
+    var meine = {}; S.pos.forEach(function (p) { if ((num(p.stueck) > 0 || p.beobachten) && PLATZ[p.boerse]) meine[PLATZ[p.boerse]] = true; });
+    var bzAlle = L.boersen(new Date()), bz = bzAlle.filter(function (b) { return meine[b.id]; });
+    if (!bz.length) bz = bzAlle;
     return {
       band: '<div class="oben"><h1>Depot</h1><button type="button" class="rund' + (S.dreht ? ' dreht' : '') + '" data-act="aktualisieren" aria-label="Kurse jetzt aktualisieren"><svg viewBox="0 0 24 24">' + IC.neu + '</svg></button></div>' +
         '<div class="gross">' + eur(s.wert) + '</div>' +
@@ -168,21 +191,10 @@
       main: (alt ? '<p class="hinweis warn">' + esc(alt) + '</p>' : '') +
         (inhaber() ? '' : '<p class="hinweis">Du liest mit. Orders, Alarme und Konditionen ändert nur der Inhaber des Depots.</p>') +
         (pos.length ? pos.map(karte).join('') : '<div class="card"><h3>Noch keine Position</h3><p class="mut" style="margin:0">' + (inhaber() ? 'Lies unten eine Abrechnung aus George ein oder trag einen Kauf von Hand ein.' : 'Sobald ein Kauf eingetragen ist, erscheint er hier.') + '</p></div>') +
-        '<section class="card"><h3>Handelszeiten in Wiener Zeit</h3>' + bz.map(function (b) {
-          var wann = b.wann ? b.wann.charAt(0).toUpperCase() + b.wann.slice(1) + ' ' : '';
-          return '<div class="eintrag"><div><b>' + esc(b.name) + '</b>' + (b.zusatz ? ' <span class="mut">' + esc(b.zusatz) + '</span>' : '') +
-            '<div class="mut">' + esc(wann + b.zeiten) + '</div></div>' +
-            '<div class="rechts"><span class="status' + (b.offen ? ' an' : '') + '">' + (b.offen ? 'offen' : 'geschlossen') + '</span></div></div>';
-        }).join('') +
-        '<details class="mehr" data-offen="zeiten"' + (S.offen.zeiten ? ' open' : '') + '><summary>Genauer</summary><p class="mut" style="margin:8px 0 0">' +
-          'Wien: Eröffnungsauktion ab 8:55, fortlaufender Handel bis 17:30, Schlussauktion bis 17:35. ' +
-          'Xetra: Haupthandel 9:00 bis 17:30, danach Schlussauktion. Für Privatanleger gibt es dort zusätzlich Früh- und Späthandel von 8:00 bis 22:00, wenn die Bank ihn anbietet. ' +
-          'New York: Haupthandel 9:30 bis 16:00 Ortszeit. George leitet Aufträge Montag bis Freitag von 7:30 bis 22:00 an die Börse weiter, spätere Aufträge am nächsten Handelstag.</p>' +
-          '<p class="mut" style="margin:8px 0 0">Feiertage, verkürzte Tage und die Zeitumstellung in den USA sind eingerechnet. Für den 30. Dezember gilt der frühe Schluss des Vorjahres, bis die Börsen ihn bestätigen.</p></details></section>' +
         (beob.length || inhaber() ? '<section class="card"><h3>Beobachtungsliste</h3>' +
           (beob.length ? beob.map(function (p) {
             var t = p.kurs !== null && p.kurs !== undefined && num(p.vortag_eur) ? (num(p.kurs_eur) / num(p.vortag_eur) - 1) * 100 : null;
-            return '<div class="eintrag"><div><b>' + esc(p.name) + '</b><div class="mut">' + esc(BOERSEN[p.boerse] || '') + (p.kurs_zeit ? ', Stand ' + esc(L.zeit(p.kurs_zeit)) : '') + '</div></div>' +
+            return '<div class="eintrag"><div><b>' + esc(p.name) + '</b><div class="mut">' + esc(platzStand(p)) + '</div></div>' +
               '<div class="rechts"><span class="nw" style="text-align:right"><b>' + (p.kurs === null || p.kurs === undefined ? 'Kein Kurs' : L.geld(p.kurs, p.waehrung)) + '</b>' + (t === null ? '' : '<br><span class="' + cls(t) + '">' + pct(t) + '</span>') + '</span>' +
               (inhaber() ? '<button type="button" class="klein" data-act="beob-weg" data-id="' + esc(p.wertpapier_id) + '" aria-label="' + esc(p.name) + ' von der Beobachtungsliste nehmen">Entfernen</button>' : '') + '</div></div>';
           }).join('') : '<p class="mut" style="margin:0">Aktien, die du im Auge behalten willst, ohne sie zu besitzen. Für sie gelten dieselben Kurswarnungen.</p>') +
@@ -309,13 +321,14 @@
         (inhaber() ? '<div class="rechts"><button type="button" class="klein" data-act="trade-weg" data-id="' + esc(t.id) + '">Löschen</button></div>' : '') + '</div>';
     }).join('');
     return {
-      band: '<h1>Mehr</h1><p>Konditionen, Buchungen und dein Zugang.</p>',
+      band: '<h1>Mehr</h1><p>Konditionen, Handelszeiten, Buchungen und dein Zugang.</p>',
       main: '<section class="card"><h2>Konditionen</h2><p class="mut" style="margin:4px 0 10px">' + esc(k.fassung || '') + '</p>' +
         '<p style="margin:0">Freikontingent ' + new Date().getFullYear() + ': ' + nf(S.genutzt, 0) + ' von ' + nf(k.frei, 0) + ' Orders genutzt, ' + nf(Math.max(0, num(k.frei) - S.genutzt), 0) + ' frei.</p>' +
         '<div class="kontingent"><i style="width:' + Math.min(100, k.frei ? S.genutzt / k.frei * 100 : 100) + '%"></i></div>' +
         '<details class="mehr" data-offen="kond"' + (S.offen.kond ? ' open' : '') + '><summary>' + (inhaber() ? 'Alle Sätze ansehen und ändern' : 'Alle Sätze ansehen') + '</summary><form id="kondform" novalidate>' + kondHtml +
         '<label class="haken mt" for="k-dep"><input type="checkbox" id="k-dep"' + (k.depot_einrechnen === false ? '' : ' checked') + ro2 + '>Depotgebühr in Break-even und Rechner einrechnen</label>' +
         (inhaber() ? '<div class="reihe"><button class="pri" type="submit">Konditionen speichern</button></div>' : '') + '</form></details></section>' +
+        zeitenKarte(L.boersen(new Date())) +
         '<section class="card"><h2>Buchungen</h2>' + (buch || '<p class="mut" style="margin:8px 0 0">Noch keine Order eingetragen.</p>') + '</section>' +
         '<section class="card"><h2>Zugang</h2><p style="margin:8px 0 0">Angemeldet als ' + esc(S.sitzung.user.email || '') + (inhaber() ? '' : ', nur lesen') + '.</p>' +
         '<div class="reihe"><button type="button" data-act="passwort">Passwort ändern</button><button type="button" data-act="abmelden">Abmelden</button></div>' +

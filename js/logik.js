@@ -146,7 +146,7 @@
     var gruppen = [];
     liste.forEach(function (b) { var g = gruppen.find(function (x) { return x.text === b.text; }); if (g) g.namen.push(b.name); else gruppen.push({ text: b.text, namen: [b.name], offen: b.offen }); });
     var und = function (a) { return a.length < 2 ? a[0] : a.slice(0, -1).join(', ') + ' und ' + a[a.length - 1]; };
-    if (gruppen.length === 1 && !gruppen[0].offen) return 'Alle Börsen geschlossen, Handel ' + gruppen[0].text.replace('öffnet ', '');
+    if (gruppen.length === 1 && !gruppen[0].offen && liste.length > 2) return 'Alle Börsen geschlossen, Handel ' + gruppen[0].text.replace('öffnet ', '');
     return gruppen.map(function (g) { return und(g.namen) + ' ' + (g.namen.length > 1 ? g.text.replace('öffnet', 'öffnen') : g.text); }).join(', ');
   };
 
