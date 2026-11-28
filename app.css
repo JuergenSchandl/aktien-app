@@ -141,6 +141,10 @@ h4 { font: 700 16px/1.3 var(--sans); margin: 14px 0 0; }
 h4 + .eintrag { border-top: 0; padding-top: 6px; }
 .haken.klein { font-size: 14px; gap: 6px; min-height: 36px; }
 .eintrag .rechts { display: flex; gap: 10px; align-items: center; flex: none; }
+.status { font-weight: 600; font-size: 14px; color: var(--mut); white-space: nowrap; }
+.status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: 1px; opacity: .6; }
+.status.an { color: var(--good); }
+.status.an::before { opacity: 1; }
 .ausgeloest { color: var(--red); font-size: 13px; font-weight: 600; margin-top: 4px; }
 .liste a.zeile { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--rule); color: var(--ink); text-decoration: none; font-weight: 600; }
 .liste a.zeile:first-child { border-top: 0; }

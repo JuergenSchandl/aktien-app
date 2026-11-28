@@ -156,14 +156,23 @@
   function vDepot() {
     var s = summen(), pos = bestand(), alt = veraltet(), tag = s.vortag ? s.heute / s.vortag * 100 : null;
     var beob = S.pos.filter(function (p) { return !(num(p.stueck) > 0) && p.beobachten; });
+    var bz = L.boersen(new Date());
     return {
       band: '<div class="oben"><h1>Depot</h1><button type="button" class="rund' + (S.dreht ? ' dreht' : '') + '" data-act="aktualisieren" aria-label="Kurse jetzt aktualisieren"><svg viewBox="0 0 24 24">' + IC.neu + '</svg></button></div>' +
         '<div class="gross">' + eur(s.wert) + '</div>' +
         (pos.length ? '<div class="zeile"><span class="chip">' + eur(s.gv, 1) + ' / ' + pct(s.kosten ? s.gv / s.kosten * 100 : 0) + '</span><span>seit Kauf inkl. Spesen</span></div>' +
-          (tag === null ? '' : '<div class="zeile"><span>Heute ' + eur(s.heute, 1) + ' (' + pct(tag) + ')</span></div>') : ''),
+          (tag === null ? '' : '<div class="zeile"><span>Heute ' + eur(s.heute, 1) + ' (' + pct(tag) + ')</span></div>') : '') +
+        '<div class="zeile"><span>' + esc(L.boersenKurz(bz)) + '</span></div>',
       main: (alt ? '<p class="hinweis warn">' + esc(alt) + '</p>' : '') +
         (inhaber() ? '' : '<p class="hinweis">Du liest mit. Orders, Alarme und Konditionen ändert nur der Inhaber des Depots.</p>') +
         (pos.length ? pos.map(karte).join('') : '<div class="card"><h3>Noch keine Position</h3><p class="mut" style="margin:0">' + (inhaber() ? 'Lies unten eine Abrechnung aus George ein oder trag einen Kauf von Hand ein.' : 'Sobald ein Kauf eingetragen ist, erscheint er hier.') + '</p></div>') +
+        '<section class="card"><h3>Handelszeiten in Wiener Zeit</h3>' + bz.map(function (b) {
+          var wann = b.wann ? b.wann.charAt(0).toUpperCase() + b.wann.slice(1) + ' ' : '';
+          return '<div class="eintrag"><div><b>' + esc(b.name) + '</b>' + (b.zusatz ? ' <span class="mut">' + esc(b.zusatz) + '</span>' : '') +
+            '<div class="mut">' + esc(wann + b.zeiten) + '</div></div>' +
+            '<div class="rechts"><span class="status' + (b.offen ? ' an' : '') + '">' + (b.offen ? 'offen' : 'geschlossen') + '</span></div></div>';
+        }).join('') +
+        '<p class="mut" style="margin:10px 0 0">Wien und Xetra: fortlaufender Handel bis 17:30, danach Schlussauktion bis 17:35. Feiertage, verkürzte Tage und die Zeitumstellung in den USA sind eingerechnet. Für den letzten Handelstag des Jahres gilt die Zeit des Vorjahres, bis die Börsen sie bestätigen.</p></section>' +
         (beob.length || inhaber() ? '<section class="card"><h3>Beobachtungsliste</h3>' +
           (beob.length ? beob.map(function (p) {
             var t = p.kurs !== null && p.kurs !== undefined && num(p.vortag_eur) ? (num(p.kurs_eur) / num(p.vortag_eur) - 1) * 100 : null;
