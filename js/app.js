@@ -331,7 +331,7 @@
     if (S.marktLaedt) return;
     S.marktLaedt = true;
     try {
-      var r = await Promise.all([q(sb.from('markt').select('symbol,name,region,sektor,waehrung').neq('region', 'Index').limit(1000)), q(sb.from('markt_stand').select('*').limit(1000))]);
+      var r = await Promise.all([q(sb.from('markt').select('symbol,name,region,sektor,waehrung,herkunft,aufgenommen').neq('region', 'Index').limit(1000)), q(sb.from('markt_stand').select('*').limit(1000))]);
       var st = {}; r[1].forEach(function (x) { st[x.symbol] = x; });
       S.markt = r[0].map(function (m) { return Object.assign({}, m, st[m.symbol] || {}); }).filter(function (m) { return m.tag; });
     } catch (e) { S.markt = []; toast('Die Marktdaten konnten nicht geladen werden: ' + meldung(e)); }
@@ -352,10 +352,17 @@
     var stand = liste.reduce(function (d, m) { return m.tag > d ? m.tag : d; }, '');
     var seg = function (attr, werte, aktiv, label) { return '<div class="seg" role="group" aria-label="' + label + '">' + Object.keys(werte).map(function (k) { return '<button type="button" data-' + attr + '="' + k + '" aria-pressed="' + (aktiv === k) + '">' + werte[k] + '</button>'; }).join('') + '</div>'; };
     var imDepot = {}; S.pos.forEach(function (p) { if (num(p.stueck) > 0 || p.beobachten) imDepot[p.symbol] = true; });
+    var vor30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    var neuDa = function (m) { return m.herkunft && m.herkunft !== 'liste' && m.aufgenommen >= vor30; };
+    var neue = liste.filter(neuDa).sort(function (x, y) { return x.aufgenommen < y.aufgenommen ? 1 : -1; }).slice(0, 12);
     return {
       band: kopf,
       main: '<section class="card"><p class="feld">Zeitraum</p>' + seg('zeit', ZEITRAUM, o.zeit, 'Zeitraum') +
         '<p class="feld mt">Börsen</p>' + seg('gruppe', { alle: 'Alle', eu: 'Europa', us: 'USA' }, o.gruppe, 'Börsen') + '</section>' +
+        (neue.length ? '<section class="card"><h3>Neu in der Liste</h3>' + neue.map(function (m) {
+          return '<div class="aktie"><div class="z1"><b>' + esc(m.name || m.symbol) + '</b><span class="nw ' + (hat(m.m21) ? cls(m.m21) : 'mut') + '"><b>' + (hat(m.m21) ? pct(m.m21 * 100, true, 1) : 'zu neu') + '</b></span></div>' +
+            '<div class="z2"><span class="mut">' + esc(m.sektor) + ', ' + (m.herkunft === 'neu' ? 'neu an der Börse' : 'fiel mit hohem Umsatz oder starkem Tagesgewinn auf') + '</span></div></div>';
+        }).join('') + '<p class="mut" style="margin:6px 0 0">Die Zahl rechts ist die Veränderung im letzten Monat. Aufgenommen heißt nur: Die Aktie wird ab jetzt mitverfolgt.</p></section>' : '') +
         '<section class="card"><h3>Bereiche, ' + ZEITRAUM[o.zeit] + '</h3>' + (zeilen.length ? zeilen.map(function (z) {
           var offen = o.offen === z.name, w = Math.abs(z.mitte) / max * 50;
           return '<button type="button" class="bereich" data-sektor="' + esc(z.name) + '" aria-expanded="' + offen + '">' +
@@ -365,7 +372,7 @@
             (offen ? '<div class="aktienliste">' + z.aktien.slice().sort(function (x, y) { return (hat(y[o.zeit]) ? y[o.zeit] : -9) - (hat(x[o.zeit]) ? x[o.zeit] : -9); }).map(function (m) {
               var v = m[o.zeit];
               return '<div class="aktie"><div class="z1"><b>' + esc(m.name || m.symbol) + '</b><span class="nw ' + (hat(v) ? cls(v) : 'mut') + '"><b>' + (hat(v) ? pct(v * 100, true, 1) : 'zu neu') + '</b></span></div>' +
-                '<div class="z2"><span class="mut">' + esc(m.region) + (hat(m.trend200) ? (m.trend200 > 0 ? ', im Aufwärtstrend' : ', im Abwärtstrend') : '') + (m.punkte >= 18 ? ', vorne' : hat(m.punkte) && m.punkte <= 6 ? ', hinten' : '') + '</span>' +
+                '<div class="z2"><span class="mut">' + esc(m.region) + (hat(m.trend200) ? (m.trend200 > 0 ? ', im Aufwärtstrend' : ', im Abwärtstrend') : '') + (m.punkte >= 18 ? ', vorne' : hat(m.punkte) && m.punkte <= 6 ? ', hinten' : '') + (neuDa(m) ? ', neu in der Liste' : '') + '</span>' +
                 (inhaber() && !imDepot[m.symbol] ? '<button type="button" class="text" data-act="markt-beob" data-symbol="' + esc(m.symbol) + '" aria-label="' + esc(m.name || m.symbol) + ' beobachten">Beobachten</button>' : imDepot[m.symbol] ? '<span class="mut">im Depot oder beobachtet</span>' : '') + '</div></div>';
             }).join('') + '</div>' : '');
         }).join('') : '<p class="mut" style="margin:0">Für diese Auswahl gibt es noch keine Daten.</p>') + '</section>' +
