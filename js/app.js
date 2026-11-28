@@ -172,7 +172,11 @@
             '<div class="mut">' + esc(wann + b.zeiten) + '</div></div>' +
             '<div class="rechts"><span class="status' + (b.offen ? ' an' : '') + '">' + (b.offen ? 'offen' : 'geschlossen') + '</span></div></div>';
         }).join('') +
-        '<p class="mut" style="margin:10px 0 0">Wien und Xetra: fortlaufender Handel bis 17:30, danach Schlussauktion bis 17:35. Feiertage, verkürzte Tage und die Zeitumstellung in den USA sind eingerechnet. Für den letzten Handelstag des Jahres gilt die Zeit des Vorjahres, bis die Börsen sie bestätigen.</p></section>' +
+        '<details class="mehr" data-offen="zeiten"' + (S.offen.zeiten ? ' open' : '') + '><summary>Genauer</summary><p class="mut" style="margin:8px 0 0">' +
+          'Wien: Eröffnungsauktion ab 8:55, fortlaufender Handel bis 17:30, Schlussauktion bis 17:35. ' +
+          'Xetra: Haupthandel 9:00 bis 17:30, danach Schlussauktion. Für Privatanleger gibt es dort zusätzlich Früh- und Späthandel von 8:00 bis 22:00, wenn die Bank ihn anbietet. ' +
+          'New York: Haupthandel 9:30 bis 16:00 Ortszeit. George leitet Aufträge Montag bis Freitag von 7:30 bis 22:00 an die Börse weiter, spätere Aufträge am nächsten Handelstag.</p>' +
+          '<p class="mut" style="margin:8px 0 0">Feiertage, verkürzte Tage und die Zeitumstellung in den USA sind eingerechnet. Für den 30. Dezember gilt der frühe Schluss des Vorjahres, bis die Börsen ihn bestätigen.</p></details></section>' +
         (beob.length || inhaber() ? '<section class="card"><h3>Beobachtungsliste</h3>' +
           (beob.length ? beob.map(function (p) {
             var t = p.kurs !== null && p.kurs !== undefined && num(p.vortag_eur) ? (num(p.kurs_eur) / num(p.vortag_eur) - 1) * 100 : null;

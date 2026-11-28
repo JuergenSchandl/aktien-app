@@ -53,11 +53,15 @@
   L.schwelleWoche = function (sigma) { return Math.max(0.04, 2 * (sigma || 0.02) * Math.sqrt(5)) * 100; };
 
   /* ---------- Handelszeiten der Börsen, umgerechnet auf Wiener Zeit ----------
-     Regeln nach den Kalendern der Wiener Börse, der Deutschen Börse und der NYSE (Stand 2026/2027).
+     Zeiten und Feiertage nach den eigenen Angaben der Wiener Börse, der Deutschen Börse und der NYSE (Stand November 2026):
+     Wien     Eröffnungsauktion ab 8:55, fortlaufender Handel ab etwa 9:04 bis 17:30, Schlussauktion bis 17:35
+     Xetra    Haupthandel 9:00 bis 17:30, danach Schlussauktion; Früh- und Späthandel für Privatanleger 8:00 bis 22:00 nur über teilnehmende Banken
+     New York Haupthandel 9:30 bis 16:00 Ortszeit; an einzelnen Tagen Schluss um 13:00 Ortszeit
+     Letzter Handelstag des Jahres: 2025 schloss Wien um 14:15 und Xetra um 14:00; die Börsen bestätigen die Zeit jedes Jahr neu.
      Sommerzeit: Die USA stellen an anderen Tagen um als Europa; in diesen Wochen öffnet New York nach Wiener Zeit eine Stunde früher. */
   var WIEN_TZ = 'Europe/Vienna';
   var PLAETZE = [
-    { id: 'WIEN', name: 'Wien', tz: 'Europe/Vienna', auf: [9, 0], zu: [17, 35] },
+    { id: 'WIEN', name: 'Wien', tz: 'Europe/Vienna', auf: [8, 55], zu: [17, 35] },
     { id: 'XETRA', name: 'Xetra', tz: 'Europe/Berlin', auf: [9, 0], zu: [17, 35] },
     { id: 'NY', name: 'New York', zusatz: 'NYSE und NASDAQ', tz: 'America/New_York', auf: [9, 30], zu: [16, 0] }
   ];
